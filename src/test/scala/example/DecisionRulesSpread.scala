@@ -206,17 +206,24 @@ class DecisionRulesSpread extends Simulation {
     )
 
   // === Injection pattern ===
-  val usersPerBurst = 500000
-  val waitBetweenBursts = 60.seconds
-  val totalBursts = 5 // change this if you want to run more or fewer bursts
+    val usersPerBurst = 500000
+    val waitBetweenBursts = 60.seconds
+    val totalBursts = 5 // how many bursts you want
 
-  // Define multiple bursts
-  val burstSteps = Seq.fill(totalBursts)(
-    constantUsersPerSec(16666).during(60.seconds)
-  ).flatten
+    // 1 million req/min = 16666 users/sec for 60 seconds
+    val burstRate = 16666
+    val burstDuration = 60.seconds
 
-  // === Setup ===
-  setUp(
+    // Define multiple bursts: burst, wait, burst, wait...
+    val burstSteps = (1 to totalBursts).flatMap { _ =>
+    Seq(
+        constantUsersPerSec(burstRate).during(burstDuration),
+        nothingFor(waitBetweenBursts)
+    )
+    }
+
+    // === Setup ===
+    setUp(
     scn.inject(burstSteps)
-  ).protocols(httpProtocol)
+    ).protocols(httpProtocol)
 }

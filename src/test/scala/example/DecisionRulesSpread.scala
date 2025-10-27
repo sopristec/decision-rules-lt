@@ -205,25 +205,19 @@ class DecisionRulesSpread extends Simulation {
         .check(status.is(200)) // Expect HTTP 200 OK
     )
 
-  // === Injection pattern ===
-    val usersPerBurst = 500000
-    val waitBetweenBursts = 60.seconds
-    val totalBursts = 5 // how many bursts you want
+  // === Target throughput ===
+  val totalRps = 2833 // total RPS for all 10 workers combined
+  val rampUpTime = 60.seconds
+  val testDuration = 300.seconds // 5 minutes steady load
 
-    // 1 million req/min = 16666 users/sec for 60 seconds
-    val burstRate = 16666
-    val burstDuration = 60.seconds
-
-    // Define multiple bursts: burst, wait, burst, wait...
-    val burstSteps = (1 to totalBursts).flatMap { _ =>
-    Seq(
-        constantUsersPerSec(burstRate).during(burstDuration),
-        nothingFor(waitBetweenBursts)
+  setUp(
+    scn.inject(
+      rampUsersPerSec(1) to totalRps during rampUpTime,
+      constantUsersPerSec(totalRps) during testDuration
     )
-    }
-
-    // === Setup ===
-    setUp(
-    scn.inject(burstSteps)
-    ).protocols(httpProtocol)
+  ).protocols(httpProtocol)
+    .throttle(
+      reachRps(totalRps) in (rampUpTime),
+      holdFor(testDuration)
+    )
 }
